@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: iam-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: iam_user
+      POSTGRES_PASSWORD: iam_password
+      POSTGRES_DB: iam_db
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    container_name: iam-redis
+    ports:
+      - "6379:6379"

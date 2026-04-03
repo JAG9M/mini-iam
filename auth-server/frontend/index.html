@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini IAM Frontend</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      width: 100%;
+      max-width: 420px;
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+    h1 {
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 28px;
+      text-align: center;
+    }
+    p.subtitle {
+      margin-top: 0;
+      margin-bottom: 24px;
+      text-align: center;
+      color: #666;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .tabs button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .tabs button.active {
+      background: #111827;
+      color: white;
+    }
+    .tabs button.inactive {
+      background: #e5e7eb;
+      color: #111827;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 16px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    button.submit {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.submit:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    .message {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+    }
+    .message.success {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      display: block;
+    }
+    .message.error {
+      background: #fef2f2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+      display: block;
+    }
+    .token-box, .profile-box {
+      margin-top: 16px;
+      padding: 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 13px;
+      word-break: break-word;
+      display: none;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .actions button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .secondary { background: #e5e7eb; }
+    .danger { background: #ef4444; color: white; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Mini IAM</h1>
+    <p class="subtitle">Frontend for register and login</p>
+
+    <div class="tabs">
+      <button id="registerTab" class="active" onclick="switchMode('register')">Register</button>
+      <button id="loginTab" class="inactive" onclick="switchMode('login')">Login</button>
+    </div>
+
+    <form id="authForm">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="Enter your email" required />
+
+      <label for="password">Password</label>
+      <input id="password" type="password" placeholder="Enter your password" required />
+
+      <button id="submitBtn" class="submit" type="submit">Register</button>
+    </form>
+
+    <div id="message" class="message"></div>
+    <div id="tokenBox" class="token-box"></div>
+    <div id="profileBox" class="profile-box"></div>
+
+    <div class="actions">
+      <button class="secondary" onclick="checkStoredToken()" type="button">Check Token</button>
+      <button class="danger" onclick="logout()" type="button">Logout</button>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE_URL = 'http://localhost:3000';
+    let mode = 'register';
+
+    const registerTab = document.getElementById('registerTab');
+    const loginTab = document.getElementById('loginTab');
+    const authForm = document.getElementById('authForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const messageBox = document.getElementById('message');
+    const tokenBox = document.getElementById('tokenBox');
+    const profileBox = document.getElementById('profileBox');
+
+    function switchMode(newMode) {
+      mode = newMode;
+      clearUI();
+
+      if (mode === 'register') {
+        registerTab.className = 'active';
+        loginTab.className = 'inactive';
+        submitBtn.textContent = 'Register';
+      } else {
+        registerTab.className = 'inactive';
+        loginTab.className = 'active';
+        submitBtn.textContent = 'Login';
+      }
+    }
+
+    function showMessage(text, type) {
+      messageBox.textContent = text;
+      messageBox.className = `message ${type}`;
+    }
+
+    function clearUI() {
+      messageBox.textContent = '';
+      messageBox.className = 'message';
+      tokenBox.style.display = 'none';
+      profileBox.style.display = 'none';
+      tokenBox.textContent = '';
+      profileBox.textContent = '';
+    }
+
+    authForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      clearUI();
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!email || !password) {
+        showMessage('Email and password are required.', 'error');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = mode === 'register' ? 'Please wait...' : 'Signing in...';
+
+      try {
+        const endpoint = mode === 'register' ? '/auth/register' : '/auth/login';
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || data.message || 'Request failed');
+        }
+
+        if (mode === 'register') {
+          showMessage(`Registration successful for ${data.user.email}. You can now log in.`, 'success');
+          switchMode('login');
+        } else {
+          localStorage.setItem('access_token', data.access_token);
+          localStorage.setItem('user_email', data.user.email);
+          showMessage(`Login successful. Welcome, ${data.user.email}.`, 'success');
+          tokenBox.style.display = 'block';
+          tokenBox.textContent = `Stored token: ${data.access_token}`;
+          profileBox.style.display = 'block';
+          profileBox.textContent = `Logged in as: ${data.user.email}`;
+        }
+      } catch (error) {
+        showMessage(error.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = mode === 'register' ? 'Register' : 'Login';
+      }
+    });
+
+    function checkStoredToken() {
+      clearUI();
+      const token = localStorage.getItem('access_token');
+      const email = localStorage.getItem('user_email');
+
+      if (!token) {
+        showMessage('No token found. Please log in first.', 'error');
+        return;
+      }
+
+      showMessage('Token found in localStorage.', 'success');
+      tokenBox.style.display = 'block';
+      tokenBox.textContent = `Stored token: ${token}`;
+      profileBox.style.display = 'block';
+      profileBox.textContent = `Stored user: ${email || 'Unknown user'}`;
+    }
+
+    function logout() {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user_email');
+      clearUI();
+      showMessage('Logged out successfully.', 'success');
+    }
+  </script>
+</body>
+</html>
